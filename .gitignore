@@ -111,3 +111,8 @@ frontend/.vite/
 .yarn/unplugged
 .yarn/build-state.yml
 .yarn/install-state.gz
+
+# =====================================================
+# WorkBuddy 本地数据（AI 助手记忆 / 缓存，非项目代码）
+# =====================================================
+.workbuddy/

@@ -2,6 +2,8 @@
 
 [![github](https://img.shields.io/badge/GitHub-zkassing%2Fmiandazi-181717?logo=github&logoColor=white)](https://github.com/zkassing/miandazi) [![license](https://img.shields.io/github/license/zkassing/miandazi)](./LICENSE) [![node](https://img.shields.io/badge/node-%E2%89%A522-7c8cff)](https://nodejs.org) [![flow](https://img.shields.io/badge/flow-ASR%E2%86%92LLM%E2%86%92TTS-7c8cff)](https://mimo.mi.com) [![stack](https://img.shields.io/badge/stack-Vite%20%2B%20Vue%203%20%2F%20Fastify%20TS-4ade80)](https://vuejs.org)
 
+![./screenshots/home.png]()
+
 > 一个住在浏览器里的面试陪练，**随时在线、随时开练**。
 > 你只用开口说，它就会用心听、认真想、温柔问，再给你一份不灌鸡汤的复盘报告。
 > 不必约时间、不必找朋友、不必害怕尴尬 —— 面搭子，永远在线等你。
