@@ -1,5 +1,7 @@
 # 🍜 面搭子 · 你的语音模拟面试搭子
 
+[![github](https://img.shields.io/badge/GitHub-zkassing%2Fmiandazi-181717?logo=github&logoColor=white)](https://github.com/zkassing/miandazi) [![license](https://img.shields.io/github/license/zkassing/miandazi)](./LICENSE) [![node](https://img.shields.io/badge/node-%E2%89%A522-7c8cff)](https://nodejs.org) [![flow](https://img.shields.io/badge/flow-ASR%E2%86%92LLM%E2%86%92TTS-7c8cff)](https://mimo.mi.com) [![stack](https://img.shields.io/badge/stack-Vite%20%2B%20Vue%203%20%2F%20Fastify%20TS-4ade80)](https://vuejs.org)
+
 > 一个住在浏览器里的面试陪练，**随时在线、随时开练**。
 > 你只用开口说，它就会用心听、认真想、温柔问，再给你一份不灌鸡汤的复盘报告。
 > 不必约时间、不必找朋友、不必害怕尴尬 —— 面搭子，永远在线等你。
@@ -8,8 +10,6 @@
 
 > 基于浏览器麦克风 + [Xiaomi MiMo-V2.5-ASR / TTS](https://mimo.mi.com) + [DeepSeek](https://platform.deepseek.com) 的一对一模拟面试 Web 应用。
 > 候选人用语音回答，AI 面试官也用语音提问；多轮对话结束后自动生成结构化评估报告。
-
-![flow](https://img.shields.io/badge/flow-ASR%E2%86%92LLM%E2%86%92TTS-7c8cff) ![stack](https://img.shields.io/badge/stack-Vite%20%2B%20Vue%203%20%2F%20Fastify%20TS-4ade80) ![node](https://img.shields.io/badge/node-%E2%89%A518-7c8cff)
 
 ## 👋 你好，我是面搭子
 
