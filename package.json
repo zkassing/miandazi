@@ -1,0 +1,28 @@
+{
+  "name": "miandazi",
+  "version": "0.3.0",
+  "private": true,
+  "description": "🍜 面搭子 — 你的语音模拟面试搭子。基于浏览器麦克风 + Xiaomi MiMo (ASR/TTS) + DeepSeek 的一对一模拟面试 Web 应用。",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node --experimental-strip-types --no-warnings src/server.ts",
+    "dev:api": "node --experimental-strip-types --no-warnings --watch src/server.ts",
+    "dev:web": "npm --prefix frontend run dev",
+    "dev": "node scripts/dev.mjs",
+    "launch": "node scripts/launch.mjs",
+    "build:web": "npm --prefix frontend run build"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.1",
+    "@fastify/multipart": "^9.0.1",
+    "better-sqlite3": "^13.0.3",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.1.0"
+  },
+  "devDependencies": {
+    "pino-pretty": "^11.3.0"
+  }
+}
