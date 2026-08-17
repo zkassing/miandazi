@@ -2,7 +2,7 @@
 
 [![github](https://img.shields.io/badge/GitHub-zkassing%2Fmiandazi-181717?logo=github&logoColor=white)](https://github.com/zkassing/miandazi) [![license](https://img.shields.io/github/license/zkassing/miandazi)](./LICENSE) [![node](https://img.shields.io/badge/node-%E2%89%A522-7c8cff)](https://nodejs.org) [![flow](https://img.shields.io/badge/flow-ASR%E2%86%92LLM%E2%86%92TTS-7c8cff)](https://mimo.mi.com) [![stack](https://img.shields.io/badge/stack-Vite%20%2B%20Vue%203%20%2F%20Fastify%20TS-4ade80)](https://vuejs.org)
 
-![./screenshots/home.png]()
+![首页 · 准备和面搭子开始一场面试](screenshots/home.png)
 
 > 一个住在浏览器里的面试陪练，**随时在线、随时开练**。
 > 你只用开口说，它就会用心听、认真想、温柔问，再给你一份不灌鸡汤的复盘报告。
@@ -237,6 +237,8 @@ cp .env.example .env
 
 > 也可以不改 `.env`，直接访问 `http://localhost:5173/settings` 在网页里配 Key / Base URL / 模型名 / TTS 声音，保存后立即生效、无需重启。配置会持久化到项目根目录 `.model-settings.json`（已 gitignore）。
 
+![模型配置 · MiMo 语音 + DeepSeek 大脑](screenshots/model.png)
+
 ### 3. 启动
 
 **两种模式：**
@@ -305,6 +307,8 @@ npm start              # 仅启动后端 API（5174）
 | `/settings` | `SettingsView` | 模型配置（MiMo / Deepseek Key / Base URL / 模型名） |
 
 `/interview` 和 `/report` 都带守卫：没有 sessionId 时跳回首页。`/history/:id` 直接从 SQLite 读，不需要进行中的 session。
+
+![历史记录 · 所有面试永久保存](screenshots/history.png)
 
 ## 🛠 常见问题
 
