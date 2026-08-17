@@ -50,7 +50,7 @@ export const config: AppConfig = Object.freeze({
   deepseekApiKey: rawDsKey,
   deepseekBaseUrl: (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1')
     .replace(/\/+$/, ''),
-  deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+  deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash',
   deepseekMaxRounds: Number.parseInt(process.env.DEEPSEEK_MAX_ROUNDS || '8', 10),
 
   sessionTtlMs: Number.parseInt(

@@ -348,7 +348,7 @@ const dsBadge = computed(() => {
                 id="setDsModel"
                 v-model="dsModel"
                 type="text"
-                placeholder="deepseek-chat"
+                placeholder="deepseek-v4-flash"
                 autocomplete="off"
                 spellcheck="false"
               />

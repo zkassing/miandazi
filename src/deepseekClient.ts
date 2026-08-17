@@ -4,9 +4,9 @@
 //   POST {baseUrl}/chat/completions
 //   Authorization: Bearer <DEEPSEEK_API_KEY>
 //
-// The deepseek-chat model (DeepSeek-V3 family) is good at structured JSON
-// output when instructed. We rely on that for the per-turn question and the
-// final interview report.
+// The deepseek-v4-flash model is good at structured JSON output when
+// instructed. We rely on that for the per-turn question and the final
+// interview report.
 
 import { getEffectiveSettings } from './modelSettings.ts';
 

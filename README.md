@@ -36,7 +36,7 @@
 ## ✨ 我能陪你做什么
 
 - 🎤 **全屏沉浸式 UI**：中央一个会"说话/思考/聆听"状态切换的语音球，候选人专注作答。
-- 🤖 **AI 面试官**：用 DeepSeek (`deepseek-chat`) 编排，结构化 JSON 输出每一轮的提问、追问、结束信号。
+- 🤖 **AI 面试官**：用 DeepSeek (`deepseek-v4-flash`) 编排，结构化 JSON 输出每一轮的提问、追问、结束信号。
 - 🪄 **可定制方向**：内置 10 个方向（前端/后端/算法/产品/运维 等），或粘贴目标 JD 让 AI 围绕 JD 出题。
 - 🔁 **多轮对话**：默认 5 轮（可设 3/5/8），由 DeepSeek 自行决定何时结束（候选人主动说"结束"也会立刻收尾）。
 - 📝 **逐轮点评 + 综合报告**：6 维度雷达图（逻辑 / 表达 / 深度 / 匹配 / 应变 / 综合），每题都有"建议回答"示范、3 条改进建议、最终结论。
@@ -55,7 +55,7 @@
   ▼
 Node + Fastify (src/，TypeScript, @ 5174)
   ├─ MiMo ASR (mimo-v2.5-asr)         ← 语音 → 文本
-  ├─ DeepSeek (deepseek-chat)         ← 文本 → 下一题 JSON
+  ├─ DeepSeek (deepseek-v4-flash)     ← 文本 → 下一题 JSON
   └─ MiMo TTS (mimo-v2.5-tts)         ← 文本 → 语音 base64
   │
   ▼
