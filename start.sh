@@ -29,7 +29,7 @@ echo ""
 # 检查 Node
 if ! command -v node >/dev/null 2>&1; then
   echo ""
-  echo "[ERROR] 未检测到 Node.js，请先安装 Node.js 22 或更高版本："
+  echo "[ERROR] 未检测到 Node.js，请先安装 Node.js 22.13 或更高版本："
   echo "        https://nodejs.org/"
   echo ""
   if [ -t 1 ]; then read -p "按回车键退出..." _; fi

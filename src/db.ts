@@ -1,12 +1,14 @@
 // db.ts — SQLite persistence for interview history + per-turn audio + markers.
 //
-// We use better-sqlite3 (synchronous, fast, single-file DB). All interview
-// sessions and turns are written here in real time so a process restart
-// doesn't lose history. The legacy in-memory `sessionStore` still drives
-// the *active* interview (because it holds the LLM conversation state
+// We use Node's built-in `node:sqlite` (DatabaseSync, synchronous, fast,
+// single-file DB) — zero native dependencies, no node-gyp build step, so
+// `npm install` works out of the box for everyone. All interview sessions
+// and turns are written here in real time so a process restart doesn't
+// lose history. The legacy in-memory `sessionStore` still drives the
+// *active* interview (because it holds the LLM conversation state
 // needed mid-flow), but it now mirrors to SQLite on every turn.
 
-import Database, { type Database as DB } from 'better-sqlite3'
+import { DatabaseSync } from 'node:sqlite'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -20,17 +22,17 @@ const DB_PATH = path.join(DATA_DIR, 'app.db')
 // Ensure dirs exist before opening the DB.
 fs.mkdirSync(AUDIO_DIR, { recursive: true })
 
-let _db: DB | null = null
-function getDb(): DB {
+let _db: DatabaseSync | null = null
+function getDb(): DatabaseSync {
   if (_db) return _db
-  _db = new Database(DB_PATH)
-  _db.pragma('journal_mode = WAL')
-  _db.pragma('foreign_keys = ON')
+  _db = new DatabaseSync(DB_PATH)
+  _db.exec('PRAGMA journal_mode = WAL')
+  _db.exec('PRAGMA foreign_keys = ON')
   initSchema(_db)
   return _db
 }
 
-function initSchema(db: DB) {
+function initSchema(db: DatabaseSync) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
       id              TEXT PRIMARY KEY,

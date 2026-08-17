@@ -10,7 +10,7 @@ setlocal EnableDelayedExpansion
 where node >nul 2>nul
 if %ERRORLEVEL% neq 0 (
     echo.
-    echo [ERROR] Node.js is not installed. Please install Node.js 22+ from:
+    echo [ERROR] Node.js is not installed. Please install Node.js 22.13+ from:
     echo         https://nodejs.org/
     echo.
     pause

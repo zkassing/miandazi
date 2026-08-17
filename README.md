@@ -92,7 +92,7 @@ Node + Fastify (src/，TypeScript, @ 5174)
 │   ├── interviewPrompts.ts   # 面试官 system prompt
 │   ├── interviewOrchestrator.ts  # 单轮流程编排 + 镜像到 SQLite
 │   ├── sessionStore.ts       # 内存会话存储 + TTL（进行中的会话用这个）
-│   └── db.ts                 # SQLite (better-sqlite3) + DAO: sessions / turns / markers
+│   └── db.ts                 # SQLite (内置 node:sqlite) + DAO: sessions / turns / markers
 ├── data/                     # 运行时生成（已 gitignore）
 │   ├── app.db                # SQLite 数据库
 │   └── audio/                # 每轮录音 WAV，命名 <sessionId>_r<round>.wav
@@ -111,7 +111,7 @@ Node + Fastify (src/，TypeScript, @ 5174)
 
 ### 0. 一键启动（推荐）✨
 
-只需要 Node.js ≥ 22（需要 `--experimental-strip-types`）。依赖、`.env`、Key 都会自动处理：
+只需要 Node.js ≥ 22.13（需要 `--experimental-strip-types`；SQLite 用内置 `node:sqlite`，无需编译）。依赖、`.env`、Key 都会自动处理：
 
 **Windows 用户**：双击项目根目录的 `start.bat` 即可启动。
 
@@ -211,7 +211,7 @@ start.bat --reset
 
 ### 1. 安装依赖
 
-需要 Node.js ≥ 22（我们用 `--experimental-strip-types` 直接跑 .ts）。
+需要 Node.js ≥ 22.13（我们用 `--experimental-strip-types` 直接跑 .ts；SQLite 走内置 `node:sqlite`，没有原生编译依赖）。
 
 ```bash
 # 后端依赖（Fastify 等）

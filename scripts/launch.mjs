@@ -10,7 +10,7 @@
 //   - 同时查 .env + .model-settings.json（运行时配置）；任一存在即视为已配
 //   - 缺失时交互式读取输入，掩码回显，写入 .env（保留其他字段和注释）
 //   - 依赖检测：若 node_modules / frontend/node_modules 缺失则自动 npm install
-//   - Node 版本检查：需要 22+（用 --experimental-strip-types）
+//   - Node 版本检查：需要 22.13+（内置 node:sqlite，无需编译）
 //   - 启动后用 /api/health 探活，再 spawn dev.mjs
 //   - Ctrl-C 时优雅关闭所有子进程
 
@@ -540,9 +540,10 @@ function maskKey(value) {
 
 // ---------- Environment checks ----------
 function checkNode() {
-  const major = Number(process.versions.node.split('.')[0])
-  if (major < 22) {
-    err(`需要 Node 22+（当前 ${process.versions.node}）。--experimental-strip-types 在 22.6+ 才可用。`)
+  const [major, minor] = process.versions.node.split('.').map(Number)
+  const ok = major > 22 || (major === 22 && minor >= 13)
+  if (!ok) {
+    err(`需要 Node 22.13+（当前 ${process.versions.node}）。内置 node:sqlite 与 --experimental-strip-types 在 22.13+ 才可用。`)
     process.exit(1)
   }
 }
