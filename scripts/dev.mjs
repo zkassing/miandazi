@@ -3,6 +3,23 @@
 
 import { spawn } from 'node:child_process'
 import process from 'node:process'
+import path from 'node:path'
+import fs from 'node:fs'
+
+// Resolve npm's CLI without a shell: run node directly on npm-cli.js.
+// Avoids the DEP0190 warning (shell:true + args) and .cmd shim issues.
+function npmRunWeb() {
+  const npmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js')
+  if (fs.existsSync(npmCli)) {
+    return { cmd: process.execPath, args: [npmCli, '--prefix', 'frontend', 'run', 'dev'] }
+  }
+  // Fallback: npm not bundled next to node (e.g. nvm) — use the .cmd shim via shell.
+  return {
+    cmd: process.platform === 'win32' ? 'npm.cmd' : 'npm',
+    args: ['--prefix', 'frontend', 'run', 'dev'],
+    shell: true,
+  }
+}
 
 const procs = [
   {
@@ -14,10 +31,7 @@ const procs = [
   {
     name: 'web',
     color: '\x1b[35m', // magenta
-    cmd: process.platform === 'win32' ? 'npm.cmd' : 'npm',
-    args: ['--prefix', 'frontend', 'run', 'dev'],
-    // npm needs a shell on Windows so the .cmd shim is resolved correctly
-    shell: process.platform === 'win32',
+    ...npmRunWeb(),
   },
 ]
 
