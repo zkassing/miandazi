@@ -20,6 +20,9 @@ frontend/node_modules/
 data/
 # 但保留 data/.gitkeep 让目录结构可见
 !data/.gitkeep
+# frontend/src/data/ 是前端源码（MiMo 声音清单），不是运行时数据，需入库
+!frontend/src/data/
+!frontend/src/data/mimoVoices.ts
 
 # =====================================================
 # Build artifacts
