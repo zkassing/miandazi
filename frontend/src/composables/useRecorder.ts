@@ -8,6 +8,28 @@ export const LOW_VOLUME_HINT_MS = 5_000
 
 export type RecorderStatus = 'idle' | 'recording' | 'denied' | 'error'
 
+/** 把 getUserMedia 的错误映射成给用户看的中文提示。 */
+function micFriendlyMessage(err: any): string {
+  const name = err?.name || ''
+  switch (name) {
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+      return '未检测到麦克风设备。请确认麦克风已连接并启用，然后重试。'
+    case 'NotAllowedError':
+    case 'PermissionDeniedError':
+      return '麦克风权限被拒绝。请在浏览器地址栏允许使用麦克风后重试。'
+    case 'NotReadableError':
+    case 'TrackStartError':
+      return '麦克风正被其他程序占用或不可用。请关闭占用麦克风的程序后重试。'
+    case 'OverconstrainedError':
+      return '没有找到符合要求的麦克风设备，请检查系统录音设置。'
+    case 'SecurityError':
+      return '浏览器安全策略阻止了麦克风访问（请通过 http://localhost 或 HTTPS 访问）。'
+    default:
+      return err?.message || '无法启动麦克风'
+  }
+}
+
 interface UseRecorderOptions {
   /** Called when the take should be submitted (>= MIN_ACTIVE_SPEECH_SECONDS). */
   onSubmit: (blob: Blob) => void
@@ -288,7 +310,7 @@ export function useRecorder(opts: UseRecorderOptions) {
       startWaveform()
     } catch (err: any) {
       console.error(err)
-      lastError.value = err.message || '无法启动录音'
+      lastError.value = micFriendlyMessage(err)
       status.value = err.name === 'NotAllowedError' ? 'denied' : 'error'
       teardownAll()
     }

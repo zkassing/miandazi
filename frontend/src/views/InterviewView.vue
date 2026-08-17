@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, computed } from 'vue'
+import { onMounted, onBeforeUnmount, ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useInterviewStore } from '@/stores/interview'
 import { useRecorder } from '@/composables/useRecorder'
@@ -89,6 +89,15 @@ const showWave = computed(() => recorder.recording.value)
 const showHintCard = computed(() => recorder.hintCardVisible.value)
 const hintPulsing = computed(() => recorder.hintPulsing.value)
 const timerText = computed(() => fmtTime(recorder.elapsed.value))
+
+// 麦克风不可用 / 被拒绝时，在页面上给出明确提示（此前只在控制台报错）。
+watch(recorder.status, (s) => {
+  if (s === 'denied' || s === 'error') {
+    toast.show(recorder.lastError.value || '麦克风不可用，请检查设备后重试', true, 4500)
+    orbState.value = 'listening'
+    hintText.value = '麦克风不可用，请检查设备后点击重试'
+  }
+})
 
 function openSampleModal() {
   sampleModalOpen.value = true
