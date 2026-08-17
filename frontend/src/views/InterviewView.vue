@@ -75,13 +75,15 @@ const recorder = useRecorder({
     if (interview.currentSampleAnswer) openSampleModal()
   },
   onNoAnswer: () => {
-    if (interview.currentSampleAnswer) {
-      openSampleModal()
-    } else {
-      toast.show('没有听清内容，请再试一次。', true, 3500)
-      orbState.value = 'listening'
-      hintText.value = '点击麦克风重新作答'
-    }
+    // 没有有效语音就结束录音（如手动停止）时，只轻提示，不弹答案弹窗；
+    // 答案提示改为录音中显示按钮、由用户主动点击查看。
+    toast.show('没有听清内容，请再试一次。', true, 3500)
+    orbState.value = 'listening'
+    hintText.value = '点击麦克风重新作答'
+  },
+  onUserRequestedSample: () => {
+    // 用户点击「答案提示」按钮：停止录音并打开参考答案弹窗。
+    openSampleModal()
   },
 })
 
@@ -107,7 +109,7 @@ function openSampleModal() {
 function closeSampleModal() {
   sampleModalOpen.value = false
   orbState.value = 'listening'
-  startCooldown(5000)
+  startCooldown(3000) // 关闭答案弹窗后等 3s 自动重新录音（原 5s）
 }
 
 function startCooldown(ms: number) {
@@ -119,7 +121,9 @@ function startCooldown(ms: number) {
       if (cooldownTimer != null) clearInterval(cooldownTimer)
       cooldownTimer = null
       orbState.value = 'listening'
-      hintText.value = '点击麦克风重新作答'
+      // 关闭答案弹窗后的等待结束后，自动重新开始录音。
+      hintText.value = '正在聆听，请开始回答…'
+      if (!recorder.recording.value) recorder.startRecording()
     } else {
       hintText.value = `请等待 ${cooldownRemain.value} 秒后重新作答…`
     }

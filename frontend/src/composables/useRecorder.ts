@@ -55,6 +55,9 @@ export function useRecorder(opts: UseRecorderOptions) {
   let analyser: AnalyserNode | null = null
   let recordedChunks: BlobPart[] = []
   let recordedMime = ''
+  // 用户主动点击「答案提示」按钮停止录音时为 true：onstop 不再触发 onNoAnswer
+  //（弹窗由 onUserRequestedSample 打开，避免重复）。
+  let hintStopRequested = false
 
   let silenceCheckTimer: number | null = null
   let silenceStartAt: number | null = null
@@ -235,9 +238,8 @@ export function useRecorder(opts: UseRecorderOptions) {
           }
         } else {
           if (silenceStartAt === null) silenceStartAt = now
-          if (now - silenceStartAt >= SILENCE_TIMEOUT_MS) {
-            if (recording.value) stopRecording()
-          }
+          // 不再静音自动停止/弹答案：只负责把「答案提示」按钮亮出来，
+          // 是否取消录音由用户点击按钮决定。
           if (lowVolumeStartAt === null) {
             lowVolumeStartAt = now
           } else if (now - lowVolumeStartAt >= LOW_VOLUME_HINT_MS) {
@@ -279,8 +281,15 @@ export function useRecorder(opts: UseRecorderOptions) {
       rec.onstop = () => {
         const blob = new Blob(recordedChunks, { type: recordedMime })
         const gaveRealSpeech = activeSpeechSeconds >= MIN_ACTIVE_SPEECH_SECONDS
+        const wasHintStop = hintStopRequested
+        hintStopRequested = false
         teardownStream()
         teardownAudio()
+        if (wasHintStop) {
+          // 用户点击「答案提示」主动取消录音：弹窗已由
+          // onUserRequestedSample 打开，这里不再触发任何提示。
+          return
+        }
         if (gaveRealSpeech) {
           blobToWav(blob)
             .then((wav) => opts.onSubmit(wav))
@@ -321,11 +330,14 @@ export function useRecorder(opts: UseRecorderOptions) {
       mediaRecorder.stop()
     }
     recording.value = false
+    hintCardVisible.value = false
+    hintPulsing.value = false
     teardownTimer()
   }
 
   function userClickedHint(hasSampleAnswer: boolean) {
     if (!recording.value) return
+    hintStopRequested = true
     if (opts.onUserRequestedSample) opts.onUserRequestedSample()
     if (hasSampleAnswer) {
       stopRecording()
