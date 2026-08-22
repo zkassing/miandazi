@@ -79,8 +79,13 @@ export const endInterview = (sessionId: string) =>
     )
     .then((r) => r.data)
 
-export const fetchReport = (sessionId: string) =>
-  http.post<ReportResponse>('/interview/report', { sessionId }).then((r) => r.data)
+export const fetchReport = (sessionId: string, force = false) =>
+  http
+    // 报告生成是推理模型调用，后端自己有 90s 硬超时 + 最多 3 次重试。
+    // 全局 axios timeout 是 0（无限）—— 这条请求必须单独设上限，否则一旦
+    // 后端卡住，前端就永远停在「正在生成面试报告…」。
+    .post<ReportResponse>('/interview/report', { sessionId, force }, { timeout: 300_000 })
+    .then((r) => r.data)
 
 export const fetchSession = (sessionId: string) =>
   http.get<SessionSnapshot>(`/interview/session/${sessionId}`).then((r) => r.data)

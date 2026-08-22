@@ -27,19 +27,57 @@ const topic = ref<string | null>(null)
 const transcript = ref('')
 const sampleModalOpen = ref(false)
 const cooldownRemain = ref(0)
+/** 正在把音频提交给后端（转写 + 出下一题）—— 期间麦克风按钮必须禁用。 */
+const submitting = ref(false)
+/** 正在结束面试 / 生成报告：幂等守卫，避免自动结束与手动点击两路并发。 */
+const finishing = ref(false)
+/** 报告生成已用秒数，用于 loading 进度提示（推理模型往往要 15-40s）。 */
+const finishElapsed = ref(0)
+let finishTimer: number | null = null
 let cooldownTimer: number | null = null
+let autoStartTimer: number | null = null
 let audioEl: HTMLAudioElement | null = null
 let autoRecordOnTtsEnd = true
+/** 组件已卸载：所有异步回调都不再碰 UI / 录音。 */
+let viewDisposed = false
 
 const waveCanvas = ref<HTMLCanvasElement | null>(null)
 
+/**
+ * 所有「自动开始录音」都走这里。之前 TTS onended、冷却结束、以及用户点击
+ * 三条路都各自调 startRecording()，判空只看 `recorder.recording`，
+ * 而 MediaRecorder 启动是异步的 —— 于是会出现两路录音同时跑，
+ * 后停止的那路把前一路的 stream/波形拆掉：波形消失、录音还在录、
+ * 按钮状态错乱。现在统一在这里做串行化 + 前置条件检查。
+ */
+function requestStartRecording(delayMs = 0) {
+  if (autoStartTimer != null) {
+    clearTimeout(autoStartTimer)
+    autoStartTimer = null
+  }
+  const go = () => {
+    autoStartTimer = null
+    if (viewDisposed) return
+    if (interview.finished || submitting.value) return
+    if (sampleModalOpen.value) return
+    if (cooldownRemain.value > 0) return
+    if (recorder.phase.value !== 'idle') return
+    if (orbState.value === 'speaking') return
+    void recorder.startRecording()
+  }
+  if (delayMs > 0) autoStartTimer = window.setTimeout(go, delayMs)
+  else go()
+}
+
 const recorder = useRecorder({
   onSubmit: async (wav: Blob) => {
-    if (!interview.sessionId) return
+    if (!interview.sessionId || viewDisposed) return
+    submitting.value = true
     orbState.value = 'thinking'
     hintText.value = '正在编码音频并转写…'
     try {
       const r = await interview.submitTake(wav, { language: 'zh' })
+      if (viewDisposed) return
       if (r.emptyReason === 'no_speech_detected' || !r.transcript) {
         toast.show('没能听清你的回答，请再试一次。', true, 3500)
         orbState.value = 'listening'
@@ -62,13 +100,19 @@ const recorder = useRecorder({
         interview.finished = true
         setTimeout(finishInterview, 1800)
       } else {
+        // 必须先解锁 submitting，否则 playQuestionAudio 播完触发的
+        // 自动开录会被 submitting 挡掉，用户看到「聆听中」却没有波形。
+        submitting.value = false
         await playQuestionAudio()
       }
     } catch (err: any) {
       console.error(err)
+      if (viewDisposed) return
       toast.show(`提交失败：${err.message}`, true)
       orbState.value = 'listening'
       hintText.value = '点击麦克风重试'
+    } finally {
+      submitting.value = false
     }
   },
   onShowSample: () => {
@@ -77,6 +121,7 @@ const recorder = useRecorder({
   onNoAnswer: () => {
     // 没有有效语音就结束录音（如手动停止）时，只轻提示，不弹答案弹窗；
     // 答案提示改为录音中显示按钮、由用户主动点击查看。
+    if (viewDisposed) return
     toast.show('没有听清内容，请再试一次。', true, 3500)
     orbState.value = 'listening'
     hintText.value = '点击麦克风重新作答'
@@ -85,24 +130,51 @@ const recorder = useRecorder({
     // 用户点击「答案提示」按钮：停止录音并打开参考答案弹窗。
     openSampleModal()
   },
+  onDeviceLost: () => {
+    if (viewDisposed) return
+    orbState.value = 'listening'
+    hintText.value = '麦克风连接中断，请检查设备后点击麦克风重试'
+  },
 })
 
 const showWave = computed(() => recorder.recording.value)
+const waveHealthy = computed(() => recorder.analysisHealthy.value)
 const showHintCard = computed(() => recorder.hintCardVisible.value)
 const hintPulsing = computed(() => recorder.hintPulsing.value)
 const timerText = computed(() => fmtTime(recorder.elapsed.value))
+/** 启动/收尾中或正在提交 —— 禁用麦克风按钮，避免并发开录、状态错乱。 */
+const micDisabled = computed(
+  () => cooldownRemain.value > 0 || recorder.busy.value || submitting.value,
+)
+const micLabel = computed(() => {
+  if (submitting.value) return '处理中'
+  if (recorder.phase.value === 'starting') return '启动中'
+  if (recorder.phase.value === 'stopping') return '收尾中'
+  return recorder.recording.value ? '停止录音' : '开始录音'
+})
 
 // 麦克风不可用 / 被拒绝时，在页面上给出明确提示（此前只在控制台报错）。
 watch(recorder.status, (s) => {
+  if (viewDisposed) return
   if (s === 'denied' || s === 'error') {
     toast.show(recorder.lastError.value || '麦克风不可用，请检查设备后重试', true, 4500)
     orbState.value = 'listening'
     hintText.value = '麦克风不可用，请检查设备后点击重试'
+    // 麦克风出错后不要再自动开录，否则会反复弹错误提示。
+    autoRecordOnTtsEnd = false
+    if (autoStartTimer != null) {
+      clearTimeout(autoStartTimer)
+      autoStartTimer = null
+    }
   }
 })
 
 function openSampleModal() {
   sampleModalOpen.value = true
+  if (autoStartTimer != null) {
+    clearTimeout(autoStartTimer)
+    autoStartTimer = null
+  }
   recorder.stopRecording()
 }
 
@@ -115,6 +187,7 @@ function closeSampleModal() {
 function startCooldown(ms: number) {
   cooldownRemain.value = Math.ceil(ms / 1000)
   if (cooldownTimer != null) clearInterval(cooldownTimer)
+  hintText.value = `请等待 ${cooldownRemain.value} 秒后重新作答…`
   cooldownTimer = window.setInterval(() => {
     cooldownRemain.value -= 1
     if (cooldownRemain.value <= 0) {
@@ -123,7 +196,7 @@ function startCooldown(ms: number) {
       orbState.value = 'listening'
       // 关闭答案弹窗后的等待结束后，自动重新开始录音。
       hintText.value = '正在聆听，请开始回答…'
-      if (!recorder.recording.value) recorder.startRecording()
+      requestStartRecording()
     } else {
       hintText.value = `请等待 ${cooldownRemain.value} 秒后重新作答…`
     }
@@ -184,12 +257,11 @@ async function playQuestionAudio() {
     orbState.value = 'listening'
     hintText.value = '点击麦克风开始回答'
     audioNeedsReplay.value = false
-    if (autoRecordOnTtsEnd && !interview.finished && !recorder.recording.value) {
+    if (autoRecordOnTtsEnd && !interview.finished) {
       if (sampleModalOpen.value) return
       autoRecordOnTtsEnd = false
-      setTimeout(() => {
-        if (!recorder.recording.value) recorder.startRecording()
-      }, 250)
+      // 稍等一下让 orbState 更新落地，再走统一的串行入口。
+      requestStartRecording(250)
     }
   }
   a.onerror = () => {
@@ -255,6 +327,9 @@ function onReplayClick() {
 }
 
 function onMicClick() {
+  // 启动中 / 收尾中 / 提交中一律忽略：这正是「点一下变回开始录制、
+  // 再点又开一路」的来源。
+  if (recorder.busy.value || submitting.value) return
   if (recorder.recording.value) {
     recorder.stopRecording()
     return
@@ -263,7 +338,10 @@ function onMicClick() {
     toast.show(`请等待 ${cooldownRemain.value} 秒后再试`, true, 1500)
     return
   }
-  recorder.startRecording()
+  // 用户手动点击时不受 orbState === 'speaking' 限制：先把题目语音停掉。
+  if (orbState.value === 'speaking') stopQuestionAudio()
+  autoRecordOnTtsEnd = false
+  requestStartRecording()
 }
 
 function onHintClick() {
@@ -290,6 +368,7 @@ function onExitClick() {
 }
 
 async function onEndClick() {
+  if (finishing.value) return
   if (!confirm('确定结束本场面试并查看报告吗？')) return
   await finishInterview()
 }
@@ -310,22 +389,64 @@ async function onMarkerClick() {
   }
 }
 
+/**
+ * 结束面试 → 生成报告 → 跳报告页。
+ *
+ * 之前这里一旦 loadReport 抛错（DeepSeek 推理把 token 吃完 → 后端 502），
+ * 只弹一个 toast：不跳页、不复位、录音已 teardown，页面就永远停在
+ * 「正在生成面试报告…」—— 这就是「结束面试后一直不结束」。
+ * 现在：幂等守卫 + 计时提示 + 无论成败都跳到报告页（报告页自带
+ * turns 兜底渲染与重试按钮）。
+ */
 async function finishInterview() {
   if (!interview.sessionId) return
+  // 幂等：`endInterview` 自动触发的 setTimeout 和用户手动点「结束面试」
+  // 可能重叠，两路并发发报告请求会让状态更乱。
+  if (finishing.value) return
+  finishing.value = true
   cleanup()
   orbState.value = 'thinking'
-  hintText.value = '正在生成面试报告…'
+  finishElapsed.value = 0
+  hintText.value = '正在生成面试报告（预计 15-40 秒）…'
+  finishTimer = window.setInterval(() => {
+    finishElapsed.value += 1
+    const s = finishElapsed.value
+    hintText.value =
+      s < 45
+        ? `正在生成面试报告… ${s}s（预计 15-40 秒，请不要关闭页面）`
+        : `报告生成较慢，正在重试… ${s}s`
+  }, 1000)
   try {
     await interview.endManually()
     await interview.loadReport()
-    router.push('/report')
+    if (interview.report?.degraded) {
+      toast.show(
+        `AI 评分未生成（${interview.report.degraded_reason || '未知原因'}），` +
+          `已先展示完整对话记录，可在报告页点「重新生成报告」重试。`,
+        true,
+        6000,
+      )
+    }
   } catch (err: any) {
     console.error(err)
-    toast.show(`生成报告失败：${err.message}`, true)
+    toast.show(`生成报告失败：${err.message}（已保留对话记录，可在报告页重试）`, true, 6000)
+  } finally {
+    if (finishTimer != null) {
+      clearInterval(finishTimer)
+      finishTimer = null
+    }
+    finishing.value = false
+    // 关键：无论报告是否生成成功都要离开本页。否则录音已 teardown、
+    // 提示文案停在 loading，用户除了刷新没有任何出路。
+    router.push('/report')
   }
 }
 
 function cleanup() {
+  if (autoStartTimer != null) {
+    clearTimeout(autoStartTimer)
+    autoStartTimer = null
+  }
   if (audioEl) {
     try { audioEl.onended = null } catch { /* noop */ }
     try { audioEl.onerror = null } catch { /* noop */ }
@@ -356,6 +477,11 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  viewDisposed = true
+  if (finishTimer != null) {
+    clearInterval(finishTimer)
+    finishTimer = null
+  }
   cleanup()
 })
 
@@ -384,6 +510,7 @@ const roundText = computed(() => `第 ${interview.currentRound || 1} 轮 · 自�
       <div v-show="showWave" class="iv-wave-wrap" aria-hidden="true">
         <canvas ref="waveCanvas" height="96" class="iv-wave-canvas"></canvas>
         <span class="iv-wave-live">LIVE</span>
+        <span v-if="!waveHealthy" class="iv-wave-warn">正在连接麦克风…</span>
       </div>
       <div class="iv-state">{{ hintText }}</div>
       <div class="iv-question">{{ questionText }}</div>
@@ -420,16 +547,21 @@ const roundText = computed(() => `第 ${interview.currentRound || 1} 轮 · 自�
     <div class="iv-controls">
       <button
         class="iv-mic"
-        :class="{ recording: recorder.recording.value }"
+        :class="{ recording: recorder.recording.value, busy: recorder.busy.value || submitting }"
         type="button"
-        :disabled="cooldownRemain > 0"
+        :disabled="micDisabled"
+        :title="micLabel"
+        :aria-label="micLabel"
         @click="onMicClick"
       >
         <span class="iv-mic-icon">
           <IconMic :size="30" />
         </span>
       </button>
-      <div class="iv-timer">{{ timerText }}</div>
+      <div class="iv-mic-meta">
+        <div class="iv-timer">{{ timerText }}</div>
+        <div class="iv-mic-label">{{ micLabel }}</div>
+      </div>
       <div class="iv-actions">
         <button
           class="btn-ghost marker-btn"
@@ -449,9 +581,14 @@ const roundText = computed(() => `第 ${interview.currentRound || 1} 轮 · 自�
           <IconVolume :size="14" />
           重听题目
         </button>
-        <button class="btn-ghost" type="button" @click="onEndClick">
+        <button
+          class="btn-ghost"
+          type="button"
+          :disabled="finishing"
+          @click="onEndClick"
+        >
           <IconStop :size="14" />
-          结束面试
+          {{ finishing ? '生成报告中…' : '结束面试' }}
         </button>
       </div>
     </div>
@@ -549,6 +686,16 @@ const roundText = computed(() => `第 ${interview.currentRound || 1} 轮 · 自�
   color: var(--danger);
   text-transform: uppercase;
   animation: live-blink 1.2s ease-in-out infinite;
+}
+.iv-wave-warn {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--paper-400);
+  text-transform: uppercase;
 }
 @keyframes live-blink {
   0%, 100% {
@@ -761,6 +908,35 @@ const roundText = computed(() => `第 ${interview.currentRound || 1} 轮 · 自�
 .iv-mic:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+.iv-mic.busy {
+  animation: none;
+  background: linear-gradient(135deg, var(--ink-3), var(--ink-2));
+  box-shadow: none;
+}
+.iv-mic.busy .iv-mic-icon {
+  animation: mic-busy-fade 1s ease-in-out infinite;
+}
+@keyframes mic-busy-fade {
+  0%, 100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.iv-mic-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 72px;
+}
+.iv-mic-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--paper-400);
 }
 .iv-timer {
   font-family: var(--mono);

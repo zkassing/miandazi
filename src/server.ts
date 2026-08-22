@@ -345,18 +345,21 @@ app.post('/api/interview/end', async (request, reply) => {
 
 /**
  * POST /api/interview/report
- * Body: { sessionId }
+ * Body: { sessionId, force? }
  * Returns the structured report (cached after first call).
+ * `force: true` 忽略缓存重新生成 —— 报告页的「重新生成报告」按钮用它。
+ * 注意：generateReport 内部已做超时/重试/本地兜底，正常不会抛错；降级结果
+ * 会带 report.degraded=true，前端据此提示重试。
  */
 app.post('/api/interview/report', async (request, reply) => {
   if (!requireKeys(reply)) return;
-  const { sessionId } = request.body || {};
+  const { sessionId, force } = request.body || {};
   if (!sessionId) {
     return reply.code(400).send({ error: 'no_session', message: 'Missing sessionId.' });
   }
   try {
-    const report = await generateReport(sessionId);
-    return { sessionId, report };
+    const report = await generateReport(sessionId, { force: Boolean(force) });
+    return { sessionId, report, degraded: Boolean(report && report.degraded) };
   } catch (err) {
     request.log.error({ err, sessionId }, 'report failed');
     return reply.code(err.statusCode || 502).send({

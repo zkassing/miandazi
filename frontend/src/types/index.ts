@@ -79,11 +79,15 @@ export interface InterviewReport {
   summary: string
   improvements: string[]
   verdict: Verdict
+  /** true = 后端的本地兜底报告（LLM 评分失败），前端应提示可重试。 */
+  degraded?: boolean
+  degraded_reason?: string
 }
 
 export interface ReportResponse {
   sessionId: string
   report: InterviewReport
+  degraded?: boolean
 }
 
 export interface SessionTurn {

@@ -3,7 +3,7 @@ import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useInterviewStore } from '@/stores/interview'
 import { useToast } from '@/composables/useToast'
-import { audioUrl, fetchHistoryDetail, addMarker } from '@/api'
+import { audioUrl, fetchHistoryDetail, addMarker, fetchReport as apiFetchReport } from '@/api'
 import IconDownload from '@/components/IconDownload.vue'
 import IconRestart from '@/components/IconRestart.vue'
 import IconBulb from '@/components/IconBulb.vue'
@@ -24,6 +24,12 @@ const router = useRouter()
 const toast = useToast()
 const report = ref<InterviewReport | null>(null)
 const loading = ref(true)
+/** 报告降级（后端本地兜底）或完全拉不到 —— 页面顶部展示重试横幅。 */
+const regenerating = ref(false)
+const degraded = computed(() => Boolean(report.value?.degraded) || !report.value)
+const degradedReason = computed(
+  () => report.value?.degraded_reason || (report.value ? '' : 'AI 评分未能生成'),
+)
 
 const historyMode = computed(() => Boolean(route.params.id))
 const historySession = ref<HistorySession | null>(null)
@@ -353,6 +359,34 @@ async function drawReportCharts() {
   })
 }
 
+/**
+ * 重新生成报告（force）。后端在 LLM 失败时会返回 degraded 兜底报告，
+ * 用户靠这个按钮重试抽卡 —— 推理模型的截断是概率事件，重试往往就好。
+ */
+async function regenerate() {
+  if (regenerating.value) return
+  const id = (route.params.id as string | undefined) || interview.sessionId
+  if (!id) {
+    toast.show('没有可重新生成的会话', true)
+    return
+  }
+  regenerating.value = true
+  try {
+    const d = await apiFetchReport(id, true)
+    report.value = d.report
+    await drawReportCharts()
+    if (d.report?.degraded) {
+      toast.show(`仍未能生成 AI 评分（${d.report.degraded_reason || '未知原因'}），请稍后再试。`, true, 5000)
+    } else {
+      toast.show('报告已重新生成', false, 2500)
+    }
+  } catch (err: any) {
+    toast.show(`重新生成失败：${err.message}`, true, 5000)
+  } finally {
+    regenerating.value = false
+  }
+}
+
 onMounted(async () => {
   try {
     const id = route.params.id as string | undefined
@@ -368,15 +402,8 @@ onMounted(async () => {
       } else {
         // Fall back to LLM generation if we don't have a cached report
         try {
-          const r = await fetch(`/api/interview/report`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionId: id }),
-          })
-          if (r.ok) {
-            const d = await r.json()
-            report.value = d.report
-          }
+          const d = await apiFetchReport(id)
+          report.value = d.report
         } catch {
           // No cached report — that's fine, we'll use the fallback rendering
         }
@@ -389,8 +416,10 @@ onMounted(async () => {
     }
     await drawReportCharts()
   } catch (err: any) {
+    // 不能卡在 loading：即使报告拉取失败，也要把页面渲染出来（下面的
+    // items / 对话记录都有 turns 兜底），并亮出重试入口。
     console.error(err)
-    toast.show(`加载报告失败：${err.message}`, true)
+    toast.show(`加载报告失败：${err.message}（可点「重新生成报告」重试）`, true, 6000)
   } finally {
     loading.value = false
   }
@@ -404,6 +433,18 @@ onMounted(async () => {
     </section>
 
     <template v-else>
+      <section v-if="degraded" class="card report-degraded">
+        <div class="card-body">
+          <strong>AI 评分未生成</strong>
+          <span class="reason">{{ degradedReason }}</span>
+          <p>下方已展示完整对话记录（录音与题目均已保存）。评分只是没能算出来，点右侧重试即可。</p>
+          <button type="button" :disabled="regenerating" @click="regenerate">
+            <IconRestart :size="14" />
+            {{ regenerating ? '正在重新生成…' : '重新生成报告' }}
+          </button>
+        </div>
+      </section>
+
       <section class="card report-hero">
         <div class="card-head">
           <span class="label">/ 评估报告</span>
@@ -530,6 +571,36 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.report-degraded {
+  border-color: rgba(255, 176, 32, 0.4);
+  background: rgba(255, 176, 32, 0.06);
+}
+.report-degraded .card-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+.report-degraded strong {
+  color: var(--yellow, #ffb020);
+  font-size: 14px;
+}
+.report-degraded .reason {
+  font-family: var(--mono);
+  font-size: 12px;
+  opacity: 0.75;
+}
+.report-degraded p {
+  flex: 1 1 320px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  opacity: 0.85;
+}
+.report-degraded button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .view-report {
   flex: 1;
   min-height: 0;

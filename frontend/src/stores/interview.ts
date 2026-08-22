@@ -117,9 +117,9 @@ export const useInterviewStore = defineStore('interview', {
       this.finished = true
     },
 
-    async loadReport() {
+    async loadReport(force = false) {
       if (!this.sessionId) throw new Error('没有有效的面试会话')
-      const r = await apiFetchReport(this.sessionId)
+      const r = await apiFetchReport(this.sessionId, force)
       this.report = r.report
       // Also fetch session snapshot for turn history (used as a fallback
       // when the report doesn't include per_question).
